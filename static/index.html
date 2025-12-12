@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Travel Planner ✈️ - Your Personal Trip Designer</title>
+    <meta
+      name="description"
+      content="Generate personalized day trip itineraries using AI based on your interests"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Animated background -->
+    <div class="background-gradient"></div>
+    <div class="background-shapes">
+      <div class="shape shape-1"></div>
+      <div class="shape shape-2"></div>
+      <div class="shape shape-3"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <div class="logo-container">
+          <span class="logo-icon">✈️</span>
+          <h1 class="logo-text">AI Travel Planner</h1>
+        </div>
+        <p class="tagline">
+          Your intelligent companion for unforgettable day trips
+        </p>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Input Section -->
+        <section class="input-section glass-card">
+          <h2 class="section-title">
+            <span class="title-icon">🌍</span>
+            Plan Your Perfect Day
+          </h2>
+
+          <form id="itinerary-form" class="form">
+            <div class="form-group">
+              <label for="city" class="form-label">
+                <span class="label-icon">📍</span>
+                Destination City
+              </label>
+              <input
+                type="text"
+                id="city"
+                name="city"
+                class="form-input"
+                placeholder="e.g., Paris, Tokyo, New York..."
+                required
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="interests" class="form-label">
+                <span class="label-icon">❤️</span>
+                Your Interests
+              </label>
+              <div class="interests-input-container">
+                <input
+                  type="text"
+                  id="interests-input"
+                  class="form-input"
+                  placeholder="Type an interest and press Enter..."
+                />
+                <div id="interests-tags" class="interests-tags"></div>
+              </div>
+              <p class="form-hint">
+                Examples: museums, food, nature, nightlife, history, shopping
+              </p>
+            </div>
+
+            <button type="submit" class="btn-primary" id="generate-btn">
+              <span class="btn-icon">✨</span>
+              <span class="btn-text">Generate My Itinerary</span>
+              <span class="btn-loading">
+                <span class="spinner"></span>
+                Generating...
+              </span>
+            </button>
+          </form>
+        </section>
+
+        <!-- Results Section -->
+        <section
+          class="results-section glass-card"
+          id="results-section"
+          style="display: none"
+        >
+          <div class="results-header">
+            <h2 class="section-title">
+              <span class="title-icon">🗺️</span>
+              Your Personalized Itinerary
+            </h2>
+            <button class="btn-secondary" id="new-plan-btn">
+              <span>🔄</span>
+              Plan Another Trip
+            </button>
+          </div>
+
+          <div class="itinerary-meta">
+            <div class="meta-item">
+              <span class="meta-label">City:</span>
+              <span class="meta-value" id="result-city"></span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Interests:</span>
+              <span class="meta-value" id="result-interests"></span>
+            </div>
+          </div>
+
+          <div id="itinerary-content" class="itinerary-content"></div>
+        </section>
+
+        <!-- Error Section -->
+        <section class="error-section" id="error-section" style="display: none">
+          <div class="error-card">
+            <span class="error-icon">⚠️</span>
+            <h3 class="error-title">Oops! Something went wrong</h3>
+            <p class="error-message" id="error-message"></p>
+            <button class="btn-secondary" id="retry-btn">Try Again</button>
+          </div>
+        </section>
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <p>Powered by AI ✨ | Made with ❤️ for travelers</p>
+      </footer>
+    </div>
+
+    <script src="/script.js"></script>
+  </body>
+</html>
