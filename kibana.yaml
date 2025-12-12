@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: logging
+  labels:
+    app: travel-planner
+    component: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      containers:
+        - name: kibana
+          image: docker.elastic.co/kibana/kibana:8.11.0
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://elasticsearch.logging.svc.cluster.local:9200"
+            - name: SERVER_NAME
+              value: "travel-planner-kibana"
+            - name: SERVER_HOST
+              value: "0.0.0.0"
+            - name: XPACK_SECURITY_ENABLED
+              value: "false"
+            - name: XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY
+              value: "min-32-byte-long-strong-encryption-key-for-kibana"
+          ports:
+            - containerPort: 5601
+              name: http
+          resources:
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+          livenessProbe:
+            httpGet:
+              path: /api/status
+              port: 5601
+            initialDelaySeconds: 90
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: 5601
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: logging
+  labels:
+    app: travel-planner
+    component: kibana
+spec:
+  type: LoadBalancer
+  selector:
+    app: kibana
+  ports:
+    - name: http
+      protocol: TCP
+      port: 5601
+      targetPort: 5601
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kibana-index-patterns
+  namespace: logging
+  labels:
+    app: travel-planner
+    component: kibana
+data:
+  setup.sh: |
+    #!/bin/bash
+    # Wait for Kibana to be ready
+    until curl -s http://kibana.logging.svc.cluster.local:5601/api/status | grep -q "All services are available"; do
+      echo "Waiting for Kibana..."
+      sleep 5
+    done
+
+    # Create index pattern for Travel Planner logs
+    curl -X POST "http://kibana.logging.svc.cluster.local:5601/api/saved_objects/index-pattern/travel-planner-*" \
+      -H 'kbn-xsrf: true' \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "attributes": {
+          "title": "travel-planner-*",
+          "timeFieldName": "@timestamp"
+        }
+      }'
+
+    echo "Index pattern created successfully!"

@@ -1,0 +1,197 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+  namespace: logging
+  labels:
+    app: travel-planner
+    component: logging
+data:
+  logstash.conf: |
+    input {
+      beats {
+        port => 5044
+      }
+    }
+
+    filter {
+      # Parse JSON logs from Python logger
+      if [message] =~ /^\{/ {
+        json {
+          source => "message"
+          target => "log_data"
+        }
+      }
+
+      # Extract log fields for AI Travel Planner
+      grok {
+        match => {
+          "message" => "%{TIMESTAMP_ISO8601:log_timestamp} - %{DATA:logger_name} - %{LOGLEVEL:log_level} - \[%{DATA:source_file}:%{NUMBER:line_number}\] - %{GREEDYDATA:log_message}"
+        }
+      }
+
+      # Add custom fields for Travel Planner
+      mutate {
+        add_field => {
+          "application" => "ai-travel-planner"
+          "service_type" => "fastapi"
+        }
+      }
+
+      # Parse itinerary generation events
+      if [log_message] =~ /Generating itinerary/ {
+        mutate {
+          add_field => { "event_type" => "itinerary_generation" }
+        }
+        grok {
+          match => {
+            "log_message" => "Generating itinerary for %{DATA:city} with interests: %{GREEDYDATA:interests}"
+          }
+        }
+      }
+
+      # Parse success events
+      if [log_message] =~ /generated successfully/ {
+        mutate {
+          add_field => { "event_type" => "generation_success" }
+        }
+      }
+
+      # Parse error events
+      if [log_level] == "ERROR" {
+        mutate {
+          add_field => { "event_type" => "error" }
+          add_tag => ["error"]
+        }
+      }
+
+      # Parse API requests
+      if [log_message] =~ /Received request/ {
+        mutate {
+          add_field => { "event_type" => "api_request" }
+        }
+      }
+
+      # Convert line number to integer
+      if [line_number] {
+        mutate {
+          convert => { "line_number" => "integer" }
+        }
+      }
+
+      # Remove unnecessary fields
+      mutate {
+        remove_field => ["agent", "ecs", "input", "host", "tags"]
+      }
+    }
+
+    output {
+      # Send to Elasticsearch with daily rotation
+      elasticsearch {
+        hosts => ["http://elasticsearch.logging.svc.cluster.local:9200"]
+        index => "travel-planner-%{+YYYY.MM.dd}"
+        document_type => "_doc"
+      }
+
+      # Debug output (remove in production)
+      # stdout {
+      #   codec => rubydebug
+      # }
+    }
+
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    xpack.monitoring.enabled: false
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  namespace: logging
+  labels:
+    app: travel-planner
+    component: logging
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      containers:
+        - name: logstash
+          image: docker.elastic.co/logstash/logstash:8.11.0
+          ports:
+            - containerPort: 5044
+              name: beats
+            - containerPort: 9600
+              name: http
+          env:
+            - name: LS_JAVA_OPTS
+              value: "-Xmx1g -Xms1g"
+          resources:
+            limits:
+              memory: 2Gi
+              cpu: 1000m
+            requests:
+              memory: 1Gi
+              cpu: 500m
+          volumeMounts:
+            - name: config-volume
+              mountPath: /usr/share/logstash/pipeline/logstash.conf
+              subPath: logstash.conf
+            - name: logstash-yml
+              mountPath: /usr/share/logstash/config/logstash.yml
+              subPath: logstash.yml
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 9600
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 9600
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: config-volume
+          configMap:
+            name: logstash-config
+            items:
+              - key: logstash.conf
+                path: logstash.conf
+        - name: logstash-yml
+          configMap:
+            name: logstash-config
+            items:
+              - key: logstash.yml
+                path: logstash.yml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+  namespace: logging
+  labels:
+    app: travel-planner
+    component: logging
+spec:
+  type: ClusterIP
+  selector:
+    app: logstash
+  ports:
+    - name: beats
+      protocol: TCP
+      port: 5044
+      targetPort: 5044
+    - name: http
+      protocol: TCP
+      port: 9600
+      targetPort: 9600
